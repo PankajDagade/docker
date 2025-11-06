@@ -1,0 +1,78 @@
+networks:
+  productclient-network:
+    driver: bridge
+
+services:
+
+  mysql-container:
+    image: mysql:8.0
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: productdb
+    ports:
+      - "3306:3306"
+    networks:
+      - productclient-network
+
+  eureka-server:
+    build:
+      context: ../eureka-server
+      dockerfile: Dockerfile
+    image: eureka-server:1.0
+    container_name: eureka-server
+    ports:
+      - "8080:8080"
+    networks:
+      - productclient-network
+
+  product-service:
+    build:
+      context: ../product-service
+      dockerfile: Dockerfile
+    image: product-service:1.0
+    container_name: product-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - eureka-server
+      - mysql-container
+    environment:
+      SPRING_APPLICATION_NAME: PRODUCT_SERVICE
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8080/eureka/
+    networks:
+      - productclient-network
+
+  eureka-product-client-feignclient:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: eureka-product-client-feignclient:1.2
+    container_name: eureka-product-client-feignclient
+    ports:
+      - "8085:8085"
+    depends_on:
+      - eureka-server
+      - product-service
+    environment:
+      SPRING_APPLICATION_NAME: FEIGN_CLIENT
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8080/eureka/
+    networks:
+      - productclient-network
+
+  eureka-product-client-resttemplate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: eureka-product-client-resttemplate:1.3
+    container_name: eureka-product-client-resttemplate
+    ports:
+      - "8083:8083"
+    depends_on:
+      - eureka-server
+      - product-service
+    environment:
+      SPRING_APPLICATION_NAME: RESTTEMPLATE_CLIENT
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8080/eureka/
+    networks:
+      - productclient-network
